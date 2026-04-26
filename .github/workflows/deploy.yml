@@ -69,3 +69,6 @@ jobs:
               docker compose logs backend
               exit 1
             fi
+
+            # Force Caddy to reload/restart to pick up Caddyfile changes
+            docker compose restart caddy
