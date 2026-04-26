@@ -7,14 +7,14 @@ function seed() {
     console.log('Seeding database...');
 
     const transaction = db.transaction(() => {
-      // ── Create Users ──
-      const ownerId = uuidv4();
-      const sm1Id = uuidv4();
-      const sm2Id = uuidv4();
-      const se1Id = uuidv4();
-      const se2Id = uuidv4();
-      const se3Id = uuidv4();
-      const se4Id = uuidv4();
+      // ── Create Users (using fixed IDs for idempotency) ──
+      const ownerId = '00000000-0000-4000-a000-000000000001';
+      const sm1Id   = '00000000-0000-4000-a000-000000000002';
+      const sm2Id   = '00000000-0000-4000-a000-000000000003';
+      const se1Id   = '00000000-0000-4000-a000-000000000004';
+      const se2Id   = '00000000-0000-4000-a000-000000000005';
+      const se3Id   = '00000000-0000-4000-a000-000000000006';
+      const se4Id   = '00000000-0000-4000-a000-000000000007';
 
       const insertUser = db.prepare(
         `INSERT OR IGNORE INTO users (id, email, name, role, reports_to) VALUES (?, ?, ?, ?, ?)`

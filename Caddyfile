@@ -1,0 +1,13 @@
+{$DOMAIN} {
+    # Reverse proxy to the frontend container
+    reverse_proxy vmcrm-frontend:80
+
+    # Optional: Log to stdout
+    log {
+        output stdout
+        format console
+    }
+
+    # Compress responses
+    encode gzip zstd
+}

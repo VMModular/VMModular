@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # Main Application Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vmcrm-backend
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - ENABLE_DEV_LOGIN=true
+      - PORT=4000
+      - DATABASE_URL=file:./data/vmcrm.db
+      - ALLOWED_ORIGINS=http://localhost,http://localhost:5173
+      - FRONTEND_URL=http://localhost
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/data:/usr/src/app/data
+    ports:
+      - "4000:4000"
+    networks:
+      - vmcrm-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Main Application Frontend (Internal)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: vmcrm-frontend
+    restart: always
+    # No public ports, Caddy will proxy to it
+    depends_on:
+      - backend
+    networks:
+      - vmcrm-network
+
+  # SSL & Reverse Proxy
+  caddy:
+    image: caddy:latest
+    container_name: vmcrm-ssl
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - vmcrm-network
+    depends_on:
+      - frontend
+
+  # Database Service (Postgres - Infrastructure Ready)
+  db:
+    image: postgres:15-alpine
+    container_name: vmcrm-db
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-vmcrm}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vmcrm-network
+    ports:
+      - "5432:5432"
+
+  # Redis (Optional infrastructure)
+  redis:
+    image: redis:alpine
+    container_name: vmcrm-redis
+    restart: always
+    networks:
+      - vmcrm-network
+
+networks:
+  vmcrm-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

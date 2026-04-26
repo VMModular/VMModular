@@ -884,7 +884,7 @@ const resolvers = {
     },
 
     devLogin: (_, { email }) => {
-      if (process.env.NODE_ENV === 'production') {
+      if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEV_LOGIN !== 'true') {
         throw new Error('Dev login not available in production');
       }
       const dbUser = db.prepare('SELECT * FROM users WHERE email = ? AND is_active = 1').get(email);

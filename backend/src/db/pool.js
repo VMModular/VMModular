@@ -2,7 +2,17 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const dbPath = path.join(__dirname, '..', '..', 'data', 'vmcrm.db');
+let dbPath = process.env.DATABASE_URL;
+
+if (dbPath && dbPath.startsWith('file:')) {
+  dbPath = dbPath.replace('file:', '');
+  // Resolve relative paths from root if needed
+  if (!path.isAbsolute(dbPath)) {
+    dbPath = path.resolve(process.cwd(), dbPath);
+  }
+} else {
+  dbPath = path.join(__dirname, '..', '..', 'data', 'vmcrm.db');
+}
 
 // Ensure data directory exists
 const dataDir = path.dirname(dbPath);

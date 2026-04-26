@@ -1,4 +1,4 @@
-# VMTwo
+# VMModular CRM
 
 for sales teams.
 
@@ -52,6 +52,7 @@ Frontend runs at `http://localhost:5173`
 ### 3. Login
 
 Use the demo accounts on the login page:
+
 - **Owner/CEO:** owner@moducraft.com
 - **Senior Sales Manager:** sm1@moducraft.com
 - **Sales Executive:** se1@moducraft.com
