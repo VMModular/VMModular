@@ -40,9 +40,9 @@ jobs:
 
             # Create/Update production .env files using a safe method
             cat <<'EOF' > backend/.env
-PORT=4000
-NODE_ENV=production
-EOF
+            PORT=4000
+            NODE_ENV=production
+            EOF
             echo "ENABLE_DEV_LOGIN=$ENABLE_DEV_LOGIN" >> backend/.env
             echo "JWT_SECRET=$JWT_SECRET" >> backend/.env
             echo "DATABASE_URL=file:./data/vmcrm.db" >> backend/.env
