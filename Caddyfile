@@ -1,4 +1,9 @@
 {$DOMAIN} {
+    # Basic Authentication
+    basic_auth {
+        {$BASIC_AUTH_USER} {$BASIC_AUTH_PASS}
+    }
+
     # Reverse proxy to the frontend container
     reverse_proxy vmcrm-frontend:80
 

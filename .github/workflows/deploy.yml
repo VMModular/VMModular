@@ -52,8 +52,10 @@ jobs:
             ALLOWED_ORIGINS=$PROTOCOL://$DOMAIN_NAME,http://localhost
             EOF
 
-            # Export DOMAIN for docker-compose.yml
+            # Export variables for docker-compose.yml
             export DOMAIN=$DOMAIN_NAME
+            export BASIC_AUTH_USER="${{ secrets.BASIC_AUTH_USER }}"
+            export BASIC_AUTH_PASS="${{ secrets.BASIC_AUTH_PASS }}"
 
             # Ensure scripts are executable
             chmod +x setup.sh startup.sh
