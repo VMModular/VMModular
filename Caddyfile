@@ -1,6 +1,9 @@
 {$DOMAIN} {
-    # Basic Authentication
-    basic_auth {
+    # Basic Authentication (Excluding OPTIONS requests to prevent repetitive prompts)
+    @not_options {
+        not method OPTIONS
+    }
+    basic_auth @not_options {
         {$BASIC_AUTH_USER} {$BASIC_AUTH_PASS}
     }
 
