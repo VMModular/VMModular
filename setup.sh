@@ -59,7 +59,7 @@ docker compose up -d --build
 info "Waiting for backend to be healthy …"
 ATTEMPTS=0
 MAX_ATTEMPTS=30
-until curl --output /dev/null --silent --head --fail http://localhost/health; do
+until curl --output /dev/null --silent --head --fail http://localhost:4000/health; do
     if [ ${ATTEMPTS} -eq ${MAX_ATTEMPTS} ];then
       error "Backend failed to start in time."
     fi
