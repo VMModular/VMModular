@@ -54,9 +54,10 @@ jobs:
             EOF
 
             # Create Caddy env file safely using printf
+            # We must double the $ signs ($$) because Docker Compose tries to expand them
             printf "DOMAIN=%s\n" "$DOMAIN_NAME" > .env.caddy
             printf "BASIC_AUTH_USER=%s\n" "$BASIC_AUTH_USER" >> .env.caddy
-            printf "BASIC_AUTH_PASS=%s\n" "$BASIC_AUTH_PASS" >> .env.caddy
+            printf "BASIC_AUTH_PASS=%s\n" "$BASIC_AUTH_PASS" | sed 's/\$/$$/g' >> .env.caddy
 
             # Ensure scripts are executable
             chmod +x setup.sh startup.sh
