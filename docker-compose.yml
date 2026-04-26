@@ -10,11 +10,6 @@ services:
     restart: always
     environment:
       - NODE_ENV=production
-      - ENABLE_DEV_LOGIN=true
-      - PORT=4000
-      - DATABASE_URL=file:./data/vmcrm.db
-      - ALLOWED_ORIGINS=http://localhost,http://localhost:5173
-      - FRONTEND_URL=http://localhost
     env_file:
       - ./backend/.env
     volumes:
