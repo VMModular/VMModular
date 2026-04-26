@@ -2,7 +2,7 @@ name: Deploy to Hostinger VPS
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feature/deployment-ready ]
 
 jobs:
   deploy:
@@ -24,12 +24,12 @@ jobs:
             mkdir -p ~/vm-crm
             cd ~/vm-crm
 
-            # Pull latest changes
+            # Pull latest changes (using the branch that triggered the action)
             if [ ! -d .git ]; then
-              git clone https://github.com/${{ github.repository }}.git .
+              git clone -b ${{ github.ref_name }} https://github.com/${{ github.repository }}.git .
             else
               git fetch --all
-              git reset --hard origin/main
+              git reset --hard origin/${{ github.ref_name }}
             fi
 
             # Create/Update production .env files
