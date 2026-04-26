@@ -53,12 +53,10 @@ jobs:
             ALLOWED_ORIGINS=$PROTOCOL://$DOMAIN_NAME,http://localhost
             EOF
 
-            # Create Caddy env file
-            cat <<EOF > .env.caddy
-            DOMAIN=$DOMAIN_NAME
-            BASIC_AUTH_USER=$BASIC_AUTH_USER
-            BASIC_AUTH_PASS=$BASIC_AUTH_PASS
-            EOF
+            # Create Caddy env file safely using printf
+            printf "DOMAIN=%s\n" "$DOMAIN_NAME" > .env.caddy
+            printf "BASIC_AUTH_USER=%s\n" "$BASIC_AUTH_USER" >> .env.caddy
+            printf "BASIC_AUTH_PASS=%s\n" "$BASIC_AUTH_PASS" >> .env.caddy
 
             # Ensure scripts are executable
             chmod +x setup.sh startup.sh
