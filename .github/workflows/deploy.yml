@@ -12,13 +12,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
+        env:
+          DOMAIN_NAME: ${{ secrets.DOMAIN || secrets.HOST }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ENABLE_DEV_LOGIN: ${{ secrets.ENABLE_DEV_LOGIN || 'false' }}
+          BASIC_AUTH_USER: ${{ secrets.BASIC_AUTH_USER }}
+          BASIC_AUTH_PASS: ${{ secrets.BASIC_AUTH_PASS }}
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           port: 22
+          envs: DOMAIN_NAME,JWT_SECRET,ENABLE_DEV_LOGIN,BASIC_AUTH_USER,BASIC_AUTH_PASS
           script: |
             # Navigate to application directory
             mkdir -p ~/vm-crm
@@ -32,27 +37,26 @@ jobs:
               git reset --hard origin/${{ github.ref_name }}
             fi
 
-            # Resolve variables and assign to shell vars to avoid heredoc expansion issues
-            export DOMAIN_NAME="${{ secrets.DOMAIN || secrets.HOST }}"
-            export PROTOCOL=$([[ -n "${{ secrets.DOMAIN }}" ]] && echo "https" || echo "http")
-            export JWT_SECRET="${{ secrets.JWT_SECRET }}"
-            export ENABLE_DEV_LOGIN="${{ secrets.ENABLE_DEV_LOGIN || 'false' }}"
+            # Resolve protocol
+            PROTOCOL=$([[ -n "${{ secrets.DOMAIN }}" ]] && echo "https" || echo "http")
 
-            # Create/Update production .env files using a safe method
-            cat <<'EOF' > backend/.env
-            PORT=4000
-            NODE_ENV=production
-            EOF
-            echo "ENABLE_DEV_LOGIN=$ENABLE_DEV_LOGIN" >> backend/.env
-            echo "JWT_SECRET=$JWT_SECRET" >> backend/.env
-            echo "DATABASE_URL=file:./data/vmcrm.db" >> backend/.env
-            echo "FRONTEND_URL=$PROTOCOL://$DOMAIN_NAME" >> backend/.env
-            echo "ALLOWED_ORIGINS=$PROTOCOL://$DOMAIN_NAME,http://localhost" >> backend/.env
+            # Create/Update production .env files safely
+            cat <<EOF > backend/.env
+PORT=4000
+NODE_ENV=production
+ENABLE_DEV_LOGIN=$ENABLE_DEV_LOGIN
+JWT_SECRET=$JWT_SECRET
+DATABASE_URL=file:./data/vmcrm.db
+FRONTEND_URL=$PROTOCOL://$DOMAIN_NAME
+ALLOWED_ORIGINS=$PROTOCOL://$DOMAIN_NAME,http://localhost
+EOF
 
-            # Export variables for docker-compose.yml
-            export DOMAIN=$DOMAIN_NAME
-            export BASIC_AUTH_USER='${{ secrets.BASIC_AUTH_USER }}'
-            export BASIC_AUTH_PASS='${{ secrets.BASIC_AUTH_PASS }}'
+            # Create Caddy env file
+            cat <<EOF > .env.caddy
+DOMAIN=$DOMAIN_NAME
+BASIC_AUTH_USER=$BASIC_AUTH_USER
+BASIC_AUTH_PASS=$BASIC_AUTH_PASS
+EOF
 
             # Ensure scripts are executable
             chmod +x setup.sh startup.sh
