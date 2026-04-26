@@ -42,21 +42,21 @@ jobs:
 
             # Create/Update production .env files safely
             cat <<EOF > backend/.env
-PORT=4000
-NODE_ENV=production
-ENABLE_DEV_LOGIN=$ENABLE_DEV_LOGIN
-JWT_SECRET=$JWT_SECRET
-DATABASE_URL=file:./data/vmcrm.db
-FRONTEND_URL=$PROTOCOL://$DOMAIN_NAME
-ALLOWED_ORIGINS=$PROTOCOL://$DOMAIN_NAME,http://localhost
-EOF
+            PORT=4000
+            NODE_ENV=production
+            ENABLE_DEV_LOGIN=$ENABLE_DEV_LOGIN
+            JWT_SECRET=$JWT_SECRET
+            DATABASE_URL=file:./data/vmcrm.db
+            FRONTEND_URL=$PROTOCOL://$DOMAIN_NAME
+            ALLOWED_ORIGINS=$PROTOCOL://$DOMAIN_NAME,http://localhost
+            EOF
 
             # Create Caddy env file
             cat <<EOF > .env.caddy
-DOMAIN=$DOMAIN_NAME
-BASIC_AUTH_USER=$BASIC_AUTH_USER
-BASIC_AUTH_PASS=$BASIC_AUTH_PASS
-EOF
+            DOMAIN=$DOMAIN_NAME
+            BASIC_AUTH_USER=$BASIC_AUTH_USER
+            BASIC_AUTH_PASS=$BASIC_AUTH_PASS
+            EOF
 
             # Ensure scripts are executable
             chmod +x setup.sh startup.sh
