@@ -51,8 +51,8 @@ jobs:
 
             # Export variables for docker-compose.yml
             export DOMAIN=$DOMAIN_NAME
-            export BASIC_AUTH_USER="${{ secrets.BASIC_AUTH_USER }}"
-            export BASIC_AUTH_PASS="${{ secrets.BASIC_AUTH_PASS }}"
+            export BASIC_AUTH_USER='${{ secrets.BASIC_AUTH_USER }}'
+            export BASIC_AUTH_PASS='${{ secrets.BASIC_AUTH_PASS }}'
 
             # Ensure scripts are executable
             chmod +x setup.sh startup.sh
