@@ -1,108 +1,120 @@
 # VMModular CRM
 
-for sales teams.
+A premium, modular CRM designed for high-performance sales teams.
 
-## Tech Stack
+## 🐳 Docker Setup (Recommended)
 
-- **Frontend:** React 18, Tailwind CSS, Apollo Client, Recharts, React Router
-- **Backend:** Node.js, Express, Apollo Server (GraphQL)
-- **Database:** PostgreSQL
-- **Auth:** Google OAuth 2.0 / Dev login
+The easiest way to get started is using the integrated Docker environment. This handles the database, backend, and frontend automatically.
 
-## Quick Start
+### 1. Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
 
-### Prerequisites
+### 2. One-Shot Setup
+Run the automated setup script for your operating system. This will configure environment variables, start the containers, run migrations, and seed demo data.
 
-- Node.js 18+
-- PostgreSQL 15+ running locally
-- Create database: `createdb vmcrm`
-
-### 1. Backend Setup
-
+**Linux / macOS:**
 ```bash
-cd backend
-npm install
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your database URL and Google OAuth credentials
-
-# Run migrations
-npm run migrate
-
-# Seed demo data
-npm run seed
-
-# Start server
-npm run dev
+chmod +x setup.sh startup.sh
+./setup.sh
 ```
 
-Backend runs at `http://localhost:4000/graphql`
+**Windows (PowerShell):**
+```powershell
+.\setup.ps1
+```
 
-### 2. Frontend Setup
+### 3. Reset Environment
+To completely wipe the database and re-initialize with fresh demo data:
 
+**Linux / macOS:**
 ```bash
-cd frontend
-npm install
-npm run dev
+./setup.sh --reset
 ```
 
-Frontend runs at `http://localhost:5173`
-
-### 3. Login
-
-Use the demo accounts on the login page:
-
-- **Owner/CEO:** owner@moducraft.com
-- **Senior Sales Manager:** sm1@moducraft.com
-- **Sales Executive:** se1@moducraft.com
-
-## Project Structure
-
-```
-├── PRD.md                  # Product Requirements Document
-├── backend/
-│   ├── src/
-│   │   ├── index.js         # Express + Apollo Server entry
-│   │   ├── auth/auth.js     # JWT auth middleware
-│   │   ├── db/
-│   │   │   ├── pool.js      # PostgreSQL connection pool
-│   │   │   ├── migrate.js   # Database migrations
-│   │   │   └── seed.js      # Demo data seeder
-│   │   └── graphql/
-│   │       ├── typeDefs.js   # GraphQL schema
-│   │       └── resolvers.js  # GraphQL resolvers
-│   ├── .env
-│   └── package.json
-└── frontend/
-    ├── src/
-    │   ├── main.jsx
-    │   ├── App.jsx
-    │   ├── index.css
-    │   ├── components/
-    │   │   └── Layout.jsx
-    │   ├── context/
-    │   │   └── AuthContext.jsx
-    │   ├── graphql/
-    │   │   ├── client.js
-    │   │   └── queries.js
-    │   ├── pages/
-    │   │   ├── LoginPage.jsx
-    │   │   ├── DashboardPage.jsx
-    │   │   ├── LeadsPage.jsx
-    │   │   ├── LeadDetailPage.jsx
-    │   │   ├── SettingsPage.jsx
-    │   │   └── OrgStructurePage.jsx
-    │   └── utils/
-    │       └── constants.js
-    ├── index.html
-    ├── tailwind.config.js
-    ├── postcss.config.js
-    ├── vite.config.js
-    └── package.json
+**Windows (PowerShell):**
+```powershell
+.\setup.ps1 -Reset
 ```
 
-## Features
+## 🚀 NPM Shortcuts (Easiest)
+
+If you have Node installed on your host, you can use these shortcuts:
+
+| Action | Shortcut | Background Command |
+| :--- | :--- | :--- |
+| **Initial Setup** | `npm run setup` / `:win` | `./setup.sh` / `.\setup.ps1` |
+| **Full Reset** | `npm run reset` / `:win` | `./setup.sh --reset` / `.\setup.ps1 -Reset` |
+| **Quick Start** | `npm run startup` / `:win` | `./startup.sh` / `.\startup.ps1` |
+| **Full Up** | `npm run up` | `docker compose up -d` |
+| **Stop & Remove** | `npm run down` | `docker compose down` |
+| **Pause App** | `npm run stop` | `docker compose stop` |
+| **Resume App** | `npm run start` | `docker compose start` |
+| **View Logs** | `npm run logs` | `docker compose logs -f` |
+| **Run Migrations** | `npm run migrate` | `docker compose exec backend npm run migrate` |
+| **Seed Data** | `npm run seed` | `docker compose exec backend npm run seed` |
+
+---
+
+## 🛠 Common Operations
+
+### Start, Stop & Pause
+- **Full Start:** `npm run up` (or `docker compose up -d`) — Recreates/starts all containers.
+- **Stop & Remove:** `npm run down` (or `docker compose down`) — Stops and removes containers, networks, and images (volumes are preserved unless `-v` is used).
+- **Pause (Stop):** `npm run stop` (or `docker compose stop`) — Stops containers but keeps them intact. Use this for a quick "just stop".
+- **Resume (Start):** `npm run start` (or `docker compose start`) — Resumes previously stopped containers.
+
+### Maintenance
+- **Check Logs:**
+  ```bash
+  npm run logs
+  ```
+- **Manual Seeding:**
+  ```bash
+  npm run seed
+  ```
+- **Database Migrations:**
+  ```bash
+  npm run migrate
+  ```
+
+---
+
+## 🌐 Accessing the Application
+
+Once the setup is complete, you can access the following endpoints:
+
+| Component | URL |
+| :--- | :--- |
+| **Frontend UI** | [http://localhost](http://localhost) |
+| **GraphQL API** | [http://localhost/graphql](http://localhost/graphql) |
+| **Health Check** | [http://localhost/health](http://localhost/health) |
+
+### 🔑 Default Credentials
+Use these accounts to test different role-based access:
+
+| Role | Email | Password |
+| :--- | :--- | :--- |
+| **Owner/CEO** | `owner@moducraft.com` | `password123` |
+| **Sales Manager** | `sm1@moducraft.com` | `password123` |
+| **Sales Executive** | `se1@moducraft.com` | `password123` |
+
+---
+
+## 🏗 Project Structure
+
+```
+├── backend/                # Node.js + Apollo Server
+│   ├── src/db/             # Migrations & Seeding logic
+│   └── src/graphql/        # Schema & Resolvers
+├── frontend/               # React 18 + Vite + Tailwind
+├── docker-compose.yml      # Container orchestration
+├── setup.sh                # Main installation & reset script
+└── startup.sh              # Lightweight start script
+```
+
+---
+
+## ✨ Features
 
 - **Lead Management** — Create, list, filter, and track leads with status pipeline
 - **Activity Timeline** — Notes, calls, meetings, status changes tracked per lead
@@ -113,8 +125,34 @@ Use the demo accounts on the login page:
 - **Org Structure** — Drag-and-drop hierarchy management
 - **Role-Based Access** — Owner, Senior Manager, Sales Executive with scoped views
 
-## Google OAuth Setup (Production)
+---
 
+## 💻 Manual Setup (Legacy/Development)
+
+If you prefer to run the application without Docker:
+
+### Prerequisites
+- Node.js 18+
+- PostgreSQL 15+
+
+### Backend
+```bash
+cd backend
+npm install
+cp .env.example .env  # Configure your DB URL
+npm run migrate
+npm run seed
+npm run dev
+```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Google OAuth Setup (Optional)
 1. Create a project in Google Cloud Console
 2. Enable Google+ API
 3. Create OAuth 2.0 credentials

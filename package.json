@@ -1,0 +1,20 @@
+{
+  "name": "vm-modular-crm",
+  "version": "1.0.0",
+  "description": "Root management scripts for VM Modular CRM",
+  "scripts": {
+    "setup": "./setup.sh",
+    "setup:win": "powershell -ExecutionPolicy Bypass -File ./setup.ps1",
+    "reset": "./setup.sh --reset",
+    "reset:win": "powershell -ExecutionPolicy Bypass -File ./setup.ps1 -Reset",
+    "startup": "./startup.sh",
+    "startup:win": "powershell -ExecutionPolicy Bypass -File ./startup.ps1",
+    "up": "docker compose up -d",
+    "down": "docker compose down",
+    "start": "docker compose start",
+    "stop": "docker compose stop",
+    "logs": "docker compose logs -f",
+    "seed": "docker compose exec backend npm run seed",
+    "migrate": "docker compose exec backend npm run migrate"
+  }
+}
