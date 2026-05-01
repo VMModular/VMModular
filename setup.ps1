@@ -33,6 +33,16 @@ if (-not (Test-Path $backendEnv)) {
     Copy-Item $backendEnvExample $backendEnv
 }
 
+$caddyEnv = ".env.caddy"
+if (-not (Test-Path $caddyEnv)) {
+    Info "Creating default .env.caddy …"
+    @'
+DOMAIN=:80
+BASIC_AUTH_USER=admin
+BASIC_AUTH_PASS=$$2a$$14$$oG8.O9T5I8B9a/4R..2VvOCwX03/7i/VIt/H/vXgC.oMIt0W25vte
+'@ | Out-File -FilePath $caddyEnv -Encoding utf8
+}
+
 # Ensure JWT_SECRET is present and at least 32 chars
 $envContent = Get-Content $backendEnv -Raw
 if ($envContent -match "JWT_SECRET=(.*)") {

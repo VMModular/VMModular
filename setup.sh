@@ -29,6 +29,15 @@ if [[ ! -f backend/.env ]]; then
   cp backend/.env.example backend/.env
 fi
 
+if [[ ! -f .env.caddy ]]; then
+  info "Creating default .env.caddy …"
+  cat > .env.caddy << 'EOF'
+DOMAIN=:80
+BASIC_AUTH_USER=admin
+BASIC_AUTH_PASS=$$2a$$14$$oG8.O9T5I8B9a/4R..2VvOCwX03/7i/VIt/H/vXgC.oMIt0W25vte
+EOF
+fi
+
 # Ensure JWT_SECRET is present and at least 32 chars
 if grep -q "JWT_SECRET=" backend/.env; then
   CURRENT_SECRET=$(grep "JWT_SECRET=" backend/.env | cut -d '=' -f2)
