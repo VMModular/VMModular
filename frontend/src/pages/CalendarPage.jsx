@@ -4,6 +4,7 @@ import { useSnackbar } from 'notistack';
 import {
   GET_CALENDAR_EVENTS, IS_CALENDAR_CONNECTED, GET_CALENDAR_AUTH_URL,
   CREATE_CALENDAR_EVENT, DELETE_CALENDAR_EVENT, GET_LEADS,
+  SYNC_CALENDAR_EVENTS, DISCONNECT_CALENDAR,
 } from '../graphql/queries';
 
 export default function CalendarPage() {
@@ -17,7 +18,10 @@ export default function CalendarPage() {
   const { data: leadsData } = useQuery(GET_LEADS, { variables: { limit: 100 } });
   const [createEvent, { loading: creating }] = useMutation(CREATE_CALENDAR_EVENT);
   const [deleteEvent] = useMutation(DELETE_CALENDAR_EVENT);
+  const [syncEvents, { loading: syncing }] = useMutation(SYNC_CALENDAR_EVENTS);
+  const [disconnectCalendar, { loading: disconnecting }] = useMutation(DISCONNECT_CALENDAR);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   const isConnected = connData?.isCalendarConnected;
   const events = eventsData?.calendarEvents || [];
@@ -55,7 +59,40 @@ export default function CalendarPage() {
           <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
           <p className="text-sm text-gray-500 mt-1">Manage meetings, calls & Google Meet links</p>
         </div>
-        <button onClick={() => setShowCreateModal(true)} className="btn-primary text-sm">+ New Event</button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              try {
+                const { data } = await syncEvents();
+                refetch();
+                enqueueSnackbar(`Synced ${data.syncCalendarEvents.synced} new events (${data.syncCalendarEvents.total} total)`, { variant: 'success' });
+              } catch (err) {
+                enqueueSnackbar(err.message || 'Sync failed', { variant: 'error' });
+              }
+            }}
+            disabled={syncing}
+            className="btn-secondary text-sm flex items-center gap-1.5"
+          >
+            {syncing ? '⏳ Syncing…' : '🔄 Sync from Google'}
+          </button>
+          <button onClick={() => setShowCreateModal(true)} className="btn-primary text-sm">+ New Event</button>
+          <button
+            onClick={async () => {
+              if (!confirm('Disconnect Google Calendar? You will need to reconnect to use calendar features.')) return;
+              try {
+                await disconnectCalendar();
+                window.location.reload();
+              } catch (err) {
+                enqueueSnackbar(err.message || 'Failed to disconnect', { variant: 'error' });
+              }
+            }}
+            disabled={disconnecting}
+            className="btn-secondary text-sm text-red-600 hover:bg-red-50"
+            title="Disconnect Google Calendar"
+          >
+            ⚡ Disconnect
+          </button>
+        </div>
       </div>
 
       {/* Quick Stats */}
@@ -91,7 +128,7 @@ export default function CalendarPage() {
               <h2 className="text-sm font-semibold text-gray-500 uppercase mb-3">Upcoming Events</h2>
               <div className="space-y-3">
                 {upcomingEvents.map((event) => (
-                  <EventCard key={event.id} event={event} onDelete={async () => {
+                  <EventCard key={event.id} event={event} onSelect={() => setSelectedEvent(event)} onDelete={async () => {
                     if (!confirm('Delete this event?')) return;
                     try {
                       await deleteEvent({ variables: { eventId: event.id } });
@@ -112,7 +149,7 @@ export default function CalendarPage() {
               <h2 className="text-sm font-semibold text-gray-500 uppercase mb-3">Past Events</h2>
               <div className="space-y-3 opacity-70">
                 {pastEvents.slice(0, 10).map((event) => (
-                  <EventCard key={event.id} event={event} isPast />
+                  <EventCard key={event.id} event={event} onSelect={() => setSelectedEvent(event)} isPast />
                 ))}
               </div>
             </div>
@@ -120,6 +157,7 @@ export default function CalendarPage() {
         </div>
       )}
 
+      {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
       {showCreateModal && (
         <CreateEventModal
           leads={leads}
@@ -141,14 +179,14 @@ export default function CalendarPage() {
   );
 }
 
-function EventCard({ event, onDelete, isPast }) {
+function EventCard({ event, onSelect, onDelete, isPast }) {
   const start = new Date(event.startTime);
   const end = new Date(event.endTime);
   const dateStr = start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const timeStr = `${start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 
   return (
-    <div className="card hover:shadow-md transition-shadow">
+    <div className="card hover:shadow-md transition-shadow cursor-pointer" onClick={onSelect}>
       <div className="flex items-start justify-between">
         <div className="flex gap-4">
           {/* Date pill */}
@@ -164,19 +202,21 @@ function EventCard({ event, onDelete, isPast }) {
             <div className="flex items-center gap-3 mt-2">
               {event.meetLink && (
                 <a href={event.meetLink} target="_blank" rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium hover:bg-blue-100">
                   📹 Join Meet
                 </a>
               )}
               {event.htmlLink && (
                 <a href={event.htmlLink} target="_blank" rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="text-xs text-gray-400 hover:text-gray-600">
                   Open in Google Calendar →
                 </a>
               )}
-              {event.attendees && (
+              {event.attendees && event.attendees.length > 0 && (
                 <span className="text-xs text-gray-400">
-                  {JSON.parse(event.attendees || '[]').length} attendee(s)
+                  {event.attendees.length} attendee(s)
                 </span>
               )}
             </div>
@@ -184,12 +224,110 @@ function EventCard({ event, onDelete, isPast }) {
         </div>
 
         {!isPast && onDelete && (
-          <button onClick={onDelete} className="text-gray-400 hover:text-red-500 p-1" title="Delete event">
+          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-gray-400 hover:text-red-500 p-1" title="Delete event">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
             </svg>
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+function EventDetailModal({ event, onClose }) {
+  const start = new Date(event.startTime);
+  const end = new Date(event.endTime);
+  const dateStr = start.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const startTime = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const endTime = end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const duration = Math.round((end - start) / 60000);
+  const durationStr = duration >= 60 ? `${Math.floor(duration / 60)}h ${duration % 60 > 0 ? duration % 60 + 'm' : ''}`.trim() : `${duration}m`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 p-0 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="bg-primary-50 border-b border-primary-100 px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <h2 className="text-lg font-semibold text-gray-900 leading-snug">{event.title}</h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 mt-0.5 flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <p className="text-sm text-primary-700 mt-1 font-medium">{dateStr}</p>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-4">
+          {/* Time & Duration */}
+          <div className="flex items-center gap-3">
+            <span className="text-gray-400">🕐</span>
+            <div>
+              <p className="text-sm font-medium text-gray-900">{startTime} – {endTime}</p>
+              <p className="text-xs text-gray-500">Duration: {durationStr}</p>
+            </div>
+          </div>
+
+          {/* Description */}
+          {event.description && (
+            <div className="flex items-start gap-3">
+              <span className="text-gray-400 mt-0.5">📝</span>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{event.description}</p>
+            </div>
+          )}
+
+          {/* Meet Link */}
+          {event.meetLink && (
+            <div className="flex items-center gap-3">
+              <span className="text-gray-400">📹</span>
+              <a href={event.meetLink} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                Join Google Meet
+              </a>
+            </div>
+          )}
+
+          {/* Google Calendar link */}
+          {event.htmlLink && (
+            <div className="flex items-center gap-3">
+              <span className="text-gray-400">📅</span>
+              <a href={event.htmlLink} target="_blank" rel="noopener noreferrer"
+                className="text-sm text-primary-600 hover:text-primary-800 font-medium">
+                Open in Google Calendar →
+              </a>
+            </div>
+          )}
+
+          {/* Attendees */}
+          {event.attendees && event.attendees.length > 0 && (
+            <div className="flex items-start gap-3">
+              <span className="text-gray-400 mt-0.5">👥</span>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-1.5">Attendees ({event.attendees.length})</p>
+                <div className="space-y-1">
+                  {event.attendees.map((email, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-medium flex-shrink-0">
+                        {email[0].toUpperCase()}
+                      </div>
+                      <span className="text-sm text-gray-700">{email}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Created at */}
+          {event.createdAt && (
+            <p className="text-xs text-gray-400 pt-1 border-t border-gray-100">
+              Created {new Date(event.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -205,11 +343,28 @@ function CreateEventModal({ leads, creating, onClose, onSubmit }) {
     attendees: '',
     addMeetLink: true,
   });
+  const [timeError, setTimeError] = useState('');
 
-  const set = (key) => (e) => setForm({ ...form, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
+  const set = (key) => (e) => {
+    const updated = { ...form, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value };
+    setForm(updated);
+    if (key === 'startTime' || key === 'endTime') {
+      const s = key === 'startTime' ? e.target.value : form.startTime;
+      const en = key === 'endTime' ? e.target.value : form.endTime;
+      if (s && en && new Date(s) >= new Date(en)) {
+        setTimeError('End time must be after start time.');
+      } else {
+        setTimeError('');
+      }
+    }
+  };
 
   const handleSubmit = () => {
     if (!form.title || !form.startTime || !form.endTime) return;
+    if (new Date(form.startTime) >= new Date(form.endTime)) {
+      setTimeError('End time must be after start time.');
+      return;
+    }
     const input = {
       title: form.title,
       description: form.description || undefined,
@@ -244,9 +399,10 @@ function CreateEventModal({ leads, creating, onClose, onSubmit }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">End Time *</label>
-              <input type="datetime-local" className="input-field" value={form.endTime} onChange={set('endTime')} />
+              <input type="datetime-local" className={`input-field ${timeError ? 'border-red-400 focus:ring-red-400' : ''}`} value={form.endTime} onChange={set('endTime')} />
             </div>
           </div>
+          {timeError && <p className="text-xs text-red-500 -mt-2">{timeError}</p>}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Link to Lead</label>
             <select className="input-field" value={form.leadId} onChange={set('leadId')}>
@@ -268,7 +424,7 @@ function CreateEventModal({ leads, creating, onClose, onSubmit }) {
         </div>
         <div className="flex justify-end gap-3 mt-6">
           <button onClick={onClose} className="btn-secondary">Cancel</button>
-          <button onClick={handleSubmit} disabled={creating || !form.title.trim() || !form.startTime || !form.endTime} className="btn-primary">
+          <button onClick={handleSubmit} disabled={creating || !form.title.trim() || !form.startTime || !form.endTime || !!timeError} className="btn-primary">
             {creating ? 'Creating...' : 'Create Event'}
           </button>
         </div>

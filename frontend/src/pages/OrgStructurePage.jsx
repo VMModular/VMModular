@@ -6,14 +6,18 @@ import { GET_ORG_STRUCTURE, GET_UNASSIGNED_USERS, UPDATE_ORG_STRUCTURE, CREATE_U
 
 const ROLE_COLORS = {
   OWNER: { bg: 'bg-amber-100', border: 'border-amber-300', text: 'text-amber-800', label: 'Owner/CEO', ring: 'ring-amber-400' },
-  SENIOR_MANAGER: { bg: 'bg-primary-100', border: 'border-primary-300', text: 'text-primary-800', label: 'Senior Sales Manager', ring: 'ring-primary-400' },
+  SENIOR_MANAGER: { bg: 'bg-primary-100', border: 'border-primary-300', text: 'text-primary-800', label: 'Sales Manager', ring: 'ring-primary-400' },
+  PRE_SALES_MANAGER: { bg: 'bg-violet-100', border: 'border-violet-300', text: 'text-violet-800', label: 'Pre Sales Manager', ring: 'ring-violet-400' },
   SALES_EXECUTIVE: { bg: 'bg-green-100', border: 'border-green-300', text: 'text-green-800', label: 'Sales Executive', ring: 'ring-green-400' },
+  PRE_SALES_EXECUTIVE: { bg: 'bg-teal-100', border: 'border-teal-300', text: 'text-teal-800', label: 'Pre Sales Executive', ring: 'ring-teal-400' },
 };
 
 const ALL_ROLES = [
   { value: 'OWNER', label: 'Owner/CEO' },
-  { value: 'SENIOR_MANAGER', label: 'Senior Sales Manager' },
+  { value: 'SENIOR_MANAGER', label: 'Sales Manager' },
+  { value: 'PRE_SALES_MANAGER', label: 'Pre Sales Manager' },
   { value: 'SALES_EXECUTIVE', label: 'Sales Executive' },
+  { value: 'PRE_SALES_EXECUTIVE', label: 'Pre Sales Executive' },
 ];
 
 export default function OrgStructurePage() {
@@ -27,14 +31,26 @@ export default function OrgStructurePage() {
   const [showAddUser, setShowAddUser] = useState(false);
   const [draggedUser, setDraggedUser] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
+  const [profileUser, setProfileUser] = useState(null);
   const [activeView, setActiveView] = useState('tree');
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
 
   const users = data?.orgStructure || [];
   const unassigned = unassignedData?.unassignedUsers || [];
 
-  const owner = users.find((u) => u.role === 'OWNER');
-  const managers = users.filter((u) => u.role === 'SENIOR_MANAGER');
-  const getExecutives = (managerId) => users.filter((u) => u.role === 'SALES_EXECUTIVE' && u.reportsToId === managerId);
+  const ownerUsers = users.filter((u) => u.role === 'OWNER');
+  const managerUsers = users.filter((u) => u.role === 'SENIOR_MANAGER' || u.role === 'PRE_SALES_MANAGER');
+  const executiveUsers = users.filter((u) => u.role === 'SALES_EXECUTIVE' || u.role === 'PRE_SALES_EXECUTIVE');
+  const categoryUsers = selectedCategory === 'OWNER'
+    ? ownerUsers
+    : selectedCategory === 'MANAGER'
+      ? managerUsers
+      : selectedCategory === 'EXECUTIVE'
+        ? executiveUsers
+        : users;
+
+  const managers = managerUsers;
+  const getExecutives = (managerId) => users.filter((u) => (u.role === 'SALES_EXECUTIVE' || u.role === 'PRE_SALES_EXECUTIVE') && u.reportsToId === managerId);
 
   const handleDrop = async (targetUserId, targetRole) => {
     if (!draggedUser) return;
@@ -98,23 +114,35 @@ export default function OrgStructurePage() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        <div className="card text-center py-4">
-          <p className="text-2xl font-bold text-gray-900">{users.length}</p>
-          <p className="text-xs text-gray-500 mt-1">Total Users</p>
-        </div>
-        <div className="card text-center py-4">
-          <p className="text-2xl font-bold text-amber-600">{users.filter(u => u.role === 'OWNER').length}</p>
-          <p className="text-xs text-gray-500 mt-1">Owners</p>
-        </div>
-        <div className="card text-center py-4">
-          <p className="text-2xl font-bold text-primary-600">{managers.length}</p>
-          <p className="text-xs text-gray-500 mt-1">Managers</p>
-        </div>
-        <div className="card text-center py-4">
-          <p className="text-2xl font-bold text-green-600">{users.filter(u => u.role === 'SALES_EXECUTIVE').length}</p>
-          <p className="text-xs text-gray-500 mt-1">Executives</p>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <CategoryTile
+          count={users.length}
+          label="Total Users"
+          numberClass="text-gray-900"
+          active={selectedCategory === 'ALL'}
+          onClick={() => setSelectedCategory('ALL')}
+        />
+        <CategoryTile
+          count={ownerUsers.length}
+          label="Owners"
+          numberClass="text-amber-600"
+          active={selectedCategory === 'OWNER'}
+          onClick={() => setSelectedCategory('OWNER')}
+        />
+        <CategoryTile
+          count={managerUsers.length}
+          label="Managers"
+          numberClass="text-primary-600"
+          active={selectedCategory === 'MANAGER'}
+          onClick={() => setSelectedCategory('MANAGER')}
+        />
+        <CategoryTile
+          count={executiveUsers.length}
+          label="Executives"
+          numberClass="text-green-600"
+          active={selectedCategory === 'EXECUTIVE'}
+          onClick={() => setSelectedCategory('EXECUTIVE')}
+        />
       </div>
 
       {activeView === 'tree' ? (
@@ -122,42 +150,67 @@ export default function OrgStructurePage() {
           {/* Org Tree */}
           <div className="lg:col-span-3">
             <div className="flex flex-col items-center">
-              {owner && (
-                <div className="mb-8">
-                  <OrgNode user={owner} role="OWNER"
-                    onDrop={() => handleDrop(owner.id, 'owner')}
-                    onDragOver={(e) => e.preventDefault()}
-                    onEdit={() => setEditingUser(owner)}
-                    onToggleActive={() => handleToggleActive(owner.id, owner.isActive !== false)}
-                  />
+              {selectedCategory === 'ALL' ? (
+                <>
+                  {ownerUsers.length > 0 && (
+                    <div className="flex gap-6 flex-wrap justify-center mb-8">
+                      {ownerUsers.map((owner) => (
+                        <OrgNode key={owner.id} user={owner} role="OWNER"
+                          onDrop={() => handleDrop(owner.id, 'owner')}
+                          onDragOver={(e) => e.preventDefault()}
+                          onEdit={() => setEditingUser(owner)}
+                          onToggleActive={() => handleToggleActive(owner.id, owner.isActive !== false)}
+                          onSelect={() => setProfileUser(owner)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {managers.length > 0 && <div className="w-0.5 h-8 bg-gray-300" />}
+                  <div className="flex gap-12 flex-wrap justify-center relative">
+                    {managers.length > 1 && <div className="absolute top-0 left-1/4 right-1/4 h-0.5 bg-gray-300" />}
+                    {managers.map((mgr) => {
+                      const execs = getExecutives(mgr.id);
+                      return (
+                        <div key={mgr.id} className="flex flex-col items-center">
+                          <OrgNode user={mgr} role={mgr.role}
+                            onDrop={() => handleDrop(mgr.id, 'manager')}
+                            onDragOver={(e) => e.preventDefault()}
+                            onEdit={() => setEditingUser(mgr)}
+                            onToggleActive={() => handleToggleActive(mgr.id, mgr.isActive !== false)}
+                            onSelect={() => setProfileUser(mgr)}
+                          />
+                          {execs.length > 0 && <div className="w-0.5 h-8 bg-gray-300" />}
+                          <div className="flex gap-4 flex-wrap justify-center">
+                            {execs.map((exec) => (
+                              <OrgNode key={exec.id} user={exec} role={exec.role}
+                                onEdit={() => setEditingUser(exec)}
+                                onToggleActive={() => handleToggleActive(exec.id, exec.isActive !== false)}
+                                onSelect={() => setProfileUser(exec)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="w-full">
+                  <p className="text-sm text-gray-500 mb-4 text-center">Showing {categoryUsers.length} user(s) in selected category</p>
+                  <div className="flex gap-4 flex-wrap justify-center">
+                    {categoryUsers.map((u) => (
+                      <OrgNode
+                        key={u.id}
+                        user={u}
+                        role={u.role}
+                        onEdit={() => setEditingUser(u)}
+                        onToggleActive={() => handleToggleActive(u.id, u.isActive !== false)}
+                        onSelect={() => setProfileUser(u)}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
-              {managers.length > 0 && <div className="w-0.5 h-8 bg-gray-300" />}
-              <div className="flex gap-12 flex-wrap justify-center relative">
-                {managers.length > 1 && <div className="absolute top-0 left-1/4 right-1/4 h-0.5 bg-gray-300" />}
-                {managers.map((mgr) => {
-                  const execs = getExecutives(mgr.id);
-                  return (
-                    <div key={mgr.id} className="flex flex-col items-center">
-                      <OrgNode user={mgr} role="SENIOR_MANAGER"
-                        onDrop={() => handleDrop(mgr.id, 'manager')}
-                        onDragOver={(e) => e.preventDefault()}
-                        onEdit={() => setEditingUser(mgr)}
-                        onToggleActive={() => handleToggleActive(mgr.id, mgr.isActive !== false)}
-                      />
-                      {execs.length > 0 && <div className="w-0.5 h-8 bg-gray-300" />}
-                      <div className="flex gap-4 flex-wrap justify-center">
-                        {execs.map((exec) => (
-                          <OrgNode key={exec.id} user={exec} role="SALES_EXECUTIVE"
-                            onEdit={() => setEditingUser(exec)}
-                            onToggleActive={() => handleToggleActive(exec.id, exec.isActive !== false)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           </div>
 
@@ -188,6 +241,7 @@ export default function OrgStructurePage() {
       )}
 
       {showAddUser && <AddUserModal onClose={() => setShowAddUser(false)} onSubmit={handleAddUser} />}
+      {profileUser && <UserProfileModal user={profileUser} users={users} onClose={() => setProfileUser(null)} />}
       {editingUser && <EditUserModal user={editingUser} onClose={() => setEditingUser(null)} onSave={async (id, input) => {
         try {
           if (input.role) await updateOrg({ variables: { userId: id, role: input.role } });
@@ -197,6 +251,18 @@ export default function OrgStructurePage() {
         } catch (err) { enqueueSnackbar(err.message || 'Failed to update user', { variant: 'error' }); }
       }} />}
     </div>
+  );
+}
+
+function CategoryTile({ count, label, numberClass, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`card text-center py-4 transition-all ${active ? 'ring-2 ring-primary-300 bg-primary-50/40' : 'hover:bg-gray-50'}`}
+    >
+      <p className={`text-2xl font-bold ${numberClass}`}>{count}</p>
+      <p className="text-xs text-gray-500 mt-1">{label}</p>
+    </button>
   );
 }
 
@@ -236,8 +302,10 @@ function RolesTable({ users, onRoleChange, onToggleActive, onEdit }) {
                   ) : (
                     <select value={u.role} onChange={(e) => onRoleChange(u.id, e.target.value)}
                       className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white cursor-pointer">
-                      <option value="SENIOR_MANAGER">Senior Manager</option>
+                      <option value="SENIOR_MANAGER">Sales Manager</option>
+                      <option value="PRE_SALES_MANAGER">Pre Sales Manager</option>
                       <option value="SALES_EXECUTIVE">Sales Executive</option>
+                      <option value="PRE_SALES_EXECUTIVE">Pre Sales Executive</option>
                     </select>
                   )}
                 </td>
@@ -260,13 +328,14 @@ function RolesTable({ users, onRoleChange, onToggleActive, onEdit }) {
   );
 }
 
-function OrgNode({ user, role, onDrop, onDragOver, onEdit, onToggleActive }) {
+function OrgNode({ user, role, onDrop, onDragOver, onEdit, onToggleActive, onSelect }) {
   const cfg = ROLE_COLORS[role];
   const isActive = user.isActive !== false;
   return (
     <div
-      className={`${cfg.bg} ${cfg.border} border-2 rounded-xl px-6 py-4 text-center min-w-[180px] transition-shadow hover:shadow-md relative group ${!isActive ? 'opacity-50' : ''}`}
+      className={`${cfg.bg} ${cfg.border} border-2 rounded-xl px-6 py-4 text-center min-w-[180px] transition-shadow hover:shadow-md relative group ${!isActive ? 'opacity-50' : ''} ${onSelect ? 'cursor-pointer' : ''}`}
       onDrop={onDrop} onDragOver={onDragOver} draggable={role !== 'OWNER'}
+      onClick={onSelect}
     >
       <p className={`font-semibold ${cfg.text} text-sm`}>{user.name}</p>
       <p className="text-xs text-gray-500 mt-1">({cfg.label})</p>
@@ -274,13 +343,69 @@ function OrgNode({ user, role, onDrop, onDragOver, onEdit, onToggleActive }) {
       {/* Hover actions */}
       <div className="absolute -top-2 -right-2 hidden group-hover:flex gap-1">
         {onEdit && (
-          <button onClick={onEdit} className="w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-500 hover:text-primary-600 shadow-sm text-xs" title="Edit">✏️</button>
+          <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-500 hover:text-primary-600 shadow-sm text-xs" title="Edit">✏️</button>
         )}
         {onToggleActive && role !== 'OWNER' && (
-          <button onClick={onToggleActive} className={`w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm text-xs ${isActive ? 'text-red-500' : 'text-green-500'}`} title={isActive ? 'Deactivate' : 'Activate'}>
+          <button onClick={(e) => { e.stopPropagation(); onToggleActive(); }} className={`w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm text-xs ${isActive ? 'text-red-500' : 'text-green-500'}`} title={isActive ? 'Deactivate' : 'Activate'}>
             {isActive ? '⏸' : '▶'}
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+function UserProfileModal({ user, users, onClose }) {
+  const cfg = ROLE_COLORS[user.role] || ROLE_COLORS.SALES_EXECUTIVE;
+  const reportsTo = user.reportsToId ? users.find((u) => u.id === user.reportsToId) : null;
+  const directReports = user.directReports || [];
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">{user.name}</h2>
+            <p className="text-sm text-gray-500">{user.email}</p>
+          </div>
+          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+          <div className="p-3 rounded-lg bg-gray-50">
+            <p className="text-gray-500 text-xs">Status</p>
+            <p className="font-medium text-gray-900">{user.isActive === false ? 'Inactive' : 'Active'}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-gray-50">
+            <p className="text-gray-500 text-xs">Reports To</p>
+            <p className="font-medium text-gray-900">{reportsTo?.name || '—'}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-gray-50">
+            <p className="text-gray-500 text-xs">Direct Reports</p>
+            <p className="font-medium text-gray-900">{directReports.length}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-gray-50">
+            <p className="text-gray-500 text-xs">User ID</p>
+            <p className="font-medium text-gray-900 truncate" title={user.id}>{user.id}</p>
+          </div>
+        </div>
+        {directReports.length > 0 && (
+          <div className="mb-5">
+            <p className="text-sm font-medium text-gray-700 mb-2">Direct Reports</p>
+            <div className="space-y-2 max-h-40 overflow-auto pr-1">
+              {directReports.map((r) => {
+                const rCfg = ROLE_COLORS[r.role] || ROLE_COLORS.SALES_EXECUTIVE;
+                return (
+                  <div key={r.id} className="flex items-center justify-between p-2 rounded-md border border-gray-100">
+                    <span className="text-sm text-gray-900">{r.name}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${rCfg.bg} ${rCfg.text}`}>{rCfg.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        <div className="flex justify-end">
+          <button onClick={onClose} className="btn-primary">Close</button>
+        </div>
       </div>
     </div>
   );
@@ -306,8 +431,10 @@ function AddUserModal({ onClose, onSubmit }) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
             <select className="input-field" value={form.role} onChange={set('role')}>
-              <option value="SENIOR_MANAGER">Senior Sales Manager</option>
+              <option value="SENIOR_MANAGER">Sales Manager</option>
+              <option value="PRE_SALES_MANAGER">Pre Sales Manager</option>
               <option value="SALES_EXECUTIVE">Sales Executive</option>
+              <option value="PRE_SALES_EXECUTIVE">Pre Sales Executive</option>
             </select>
           </div>
         </div>

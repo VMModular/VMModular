@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_ME, DEV_LOGIN } from '../graphql/queries';
+import { GET_ME, DEV_LOGIN, GOOGLE_LOGIN } from '../graphql/queries';
 import client from '../graphql/client';
 
 const AuthContext = createContext(null);
@@ -18,6 +18,7 @@ export function AuthProvider({ children }) {
   });
 
   const [devLoginMutation] = useMutation(DEV_LOGIN);
+  const [googleLoginMutation] = useMutation(GOOGLE_LOGIN);
 
   useEffect(() => {
     if (!queryLoading) {
@@ -39,6 +40,17 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const loginWithGoogle = async (idToken) => {
+    try {
+      const { data } = await googleLoginMutation({ variables: { idToken } });
+      localStorage.setItem('vmcrm_token', data.googleLogin.token);
+      setUser(data.googleLogin.user);
+      return data.googleLogin.user;
+    } catch (err) {
+      throw err;
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('vmcrm_token');
     setUser(null);
@@ -46,7 +58,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );

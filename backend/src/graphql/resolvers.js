@@ -239,6 +239,7 @@ const resolvers = {
 
   // ── Type resolvers ──
   User: {
+    reportsToId: (parent) => parent.reportsToId || parent.reportsTo || parent.reports_to || null,
     reportsTo: (parent) => {
       if (!parent.reportsToId && !parent.reportsTo && !parent.reports_to) return null;
       const id = parent.reportsToId || parent.reportsTo || parent.reports_to;
@@ -351,7 +352,9 @@ const resolvers = {
           CASE role 
             WHEN 'OWNER' THEN 1 
             WHEN 'SENIOR_MANAGER' THEN 2 
-            WHEN 'SALES_EXECUTIVE' THEN 3 
+            WHEN 'PRE_SALES_MANAGER' THEN 3 
+            WHEN 'SALES_EXECUTIVE' THEN 4 
+            WHEN 'PRE_SALES_EXECUTIVE' THEN 5 
           END, name
       `).all());
     },
@@ -370,10 +373,10 @@ const resolvers = {
       const params = [];
 
       // Role-based filtering
-      if (user.role === 'SALES_EXECUTIVE') {
+      if (['SALES_EXECUTIVE', 'PRE_SALES_EXECUTIVE'].includes(user.role)) {
         whereClause += ' AND l.assigned_to = ?';
         params.push(user.id);
-      } else if (user.role === 'SENIOR_MANAGER') {
+      } else if (['SENIOR_MANAGER', 'PRE_SALES_MANAGER'].includes(user.role)) {
         whereClause += ' AND (l.assigned_to = ? OR l.assigned_to IN (SELECT id FROM users WHERE reports_to = ?))';
         params.push(user.id, user.id);
       }
@@ -467,7 +470,7 @@ const resolvers = {
       const lead = db.prepare('SELECT * FROM leads WHERE id = ?').get(id);
       if (!lead) throw new Error('Lead not found');
 
-      if (user.role === 'SALES_EXECUTIVE' && lead.assigned_to !== user.id) {
+      if (['SALES_EXECUTIVE', 'PRE_SALES_EXECUTIVE'].includes(user.role) && lead.assigned_to !== user.id) {
         throw new Error('Access denied');
       }
 
@@ -501,11 +504,11 @@ const resolvers = {
     },
 
     dashboardMetrics: (_, __, { user }) => {
-      requireRole(user, ['OWNER', 'SENIOR_MANAGER']);
+      requireRole(user, ['OWNER', 'SENIOR_MANAGER', 'PRE_SALES_MANAGER']);
 
       let teamFilter = '';
       const params = [];
-      if (user.role === 'SENIOR_MANAGER') {
+      if (['SENIOR_MANAGER', 'PRE_SALES_MANAGER'].includes(user.role)) {
         teamFilter = `WHERE assigned_to = ? OR assigned_to IN (SELECT id FROM users WHERE reports_to = ?)`;
         params.push(user.id, user.id);
       }
@@ -531,7 +534,8 @@ const resolvers = {
       ];
 
       // Team performance
-      const teamParams = user.role === 'SENIOR_MANAGER' ? [user.id] : [];
+      const isManager = ['SENIOR_MANAGER', 'PRE_SALES_MANAGER'].includes(user.role);
+      const teamParams = isManager ? [user.id] : [];
       const teamRows = db.prepare(`
         SELECT u.id as user_id, u.name as user_name,
           SUM(CASE WHEN l.status = 'NEW' THEN 1 ELSE 0 END) as new_count,
@@ -541,8 +545,8 @@ const resolvers = {
           SUM(CASE WHEN l.status = 'WON' THEN 1 ELSE 0 END) as won_count
         FROM users u
         LEFT JOIN leads l ON l.assigned_to = u.id AND l.created_at >= datetime('now', '-30 days')
-        WHERE u.is_active = 1 AND u.role = 'SALES_EXECUTIVE'
-        ${user.role === 'SENIOR_MANAGER' ? 'AND u.reports_to = ?' : ''}
+        WHERE u.is_active = 1 AND u.role IN ('SALES_EXECUTIVE', 'PRE_SALES_EXECUTIVE')
+        ${isManager ? 'AND u.reports_to = ?' : ''}
         GROUP BY u.id, u.name
         ORDER BY u.name
       `).all(...teamParams);
@@ -555,7 +559,7 @@ const resolvers = {
 
       // 1. Unattended leads
       const unattendedDays = parseInt(settingsMap['unattended_leads_days'] || '3');
-      const unattendedParams = user.role === 'SENIOR_MANAGER' ? [user.id, user.id] : [];
+      const unattendedParams = isManager ? [user.id, user.id] : [];
       const unattendedRows = db.prepare(`
         SELECT l.id FROM leads l
         WHERE l.status NOT IN ('WON', 'JUNK')
@@ -576,7 +580,7 @@ const resolvers = {
 
       // 2. Excessive quote revisions
       const maxRevisions = parseInt(settingsMap['max_quote_revisions'] || '3');
-      const revisionParams = user.role === 'SENIOR_MANAGER' ? [user.id, user.id] : [];
+      const revisionParams = isManager ? [user.id, user.id] : [];
       const revisionsRows = db.prepare(`
         SELECT q.lead_id, COUNT(*) as cnt FROM quotations q
         JOIN leads l ON l.id = q.lead_id
@@ -602,7 +606,7 @@ const resolvers = {
         WHERE l.status = 'SQL'
         AND l.updated_at < datetime('now', '-${sqlInactiveDays} days')
         ${teamFilter ? 'AND (' + teamFilter.replace('WHERE ', '') + ')' : ''}
-      `).all(...(user.role === 'SENIOR_MANAGER' ? [user.id, user.id] : []));
+      `).all(...(isManager ? [user.id, user.id] : []));
 
       if (sqlInactiveRows.length > 0) {
         alerts.push({
@@ -621,11 +625,11 @@ const resolvers = {
         SELECT u.id as user_id, u.name, COUNT(a.id) as call_count
         FROM users u
         LEFT JOIN activities a ON a.user_id = u.id AND a.type = 'CALL' AND a.created_at >= datetime('now', '-7 days')
-        WHERE u.is_active = 1 AND u.role = 'SALES_EXECUTIVE'
-        ${user.role === 'SENIOR_MANAGER' ? 'AND u.reports_to = ?' : ''}
+        WHERE u.is_active = 1 AND u.role IN ('SALES_EXECUTIVE', 'PRE_SALES_EXECUTIVE')
+        ${isManager ? 'AND u.reports_to = ?' : ''}
         GROUP BY u.id, u.name
         HAVING COUNT(a.id) < ${minCalls}
-      `).all(...(user.role === 'SENIOR_MANAGER' ? [user.id] : []));
+      `).all(...(isManager ? [user.id] : []));
 
       if (lowCallRows.length > 0) {
         alerts.push({
@@ -644,7 +648,7 @@ const resolvers = {
         WHERE l.priority = 'P1' AND l.status IN ('NEW', 'FOLLOW_UP')
         AND l.created_at < datetime('now', '-2 days')
         ${teamFilter ? 'AND (' + teamFilter.replace('WHERE ', '') + ')' : ''}
-      `).all(...(user.role === 'SENIOR_MANAGER' ? [user.id, user.id] : []));
+      `).all(...(isManager ? [user.id, user.id] : []));
 
       if (stuckP1Rows.length > 0) {
         alerts.push({
@@ -710,11 +714,11 @@ const resolvers = {
           SUM(CASE WHEN l.status = 'WON' THEN COALESCE(l.budget, 0) ELSE 0 END) as revenue
         FROM users u
         LEFT JOIN leads l ON l.assigned_to = u.id
-        WHERE u.is_active = 1 AND u.role = 'SALES_EXECUTIVE'
-        ${user.role === 'SENIOR_MANAGER' ? 'AND u.reports_to = ?' : ''}
+        WHERE u.is_active = 1 AND u.role IN ('SALES_EXECUTIVE', 'PRE_SALES_EXECUTIVE')
+        ${isManager ? 'AND u.reports_to = ?' : ''}
         GROUP BY u.id, u.name
         ORDER BY won_leads DESC, revenue DESC
-      `).all(...(user.role === 'SENIOR_MANAGER' ? [user.id] : []));
+      `).all(...(isManager ? [user.id] : []));
 
       const performanceMetrics = {
         conversionRate: Math.round(conversionRate * 100) / 100,
@@ -848,6 +852,11 @@ const resolvers = {
       requireAuth(user);
       return calendarService.isCalendarConnected(user.id);
     },
+
+    freeBusy: async (_, { timeMin, timeMax }, { user }) => {
+      requireAuth(user);
+      return calendarService.getFreeBusy(user.id, { timeMin, timeMax });
+    },
   },
 
   // ── Mutations ──
@@ -859,14 +868,38 @@ const resolvers = {
           audience: process.env.GOOGLE_CLIENT_ID,
         });
         const payload = ticket.getPayload();
-        const email = payload.email;
+        const email = (payload.email || '').trim().toLowerCase();
+        const name = (payload.name || '').trim() || email.split('@')[0] || 'Owner';
         const avatarUrl = payload.picture;
+        const ownerEmail = (process.env.OWNER_EMAIL || '').trim().toLowerCase();
+        const isConfiguredOwner = !!ownerEmail && email === ownerEmail;
 
-        const dbUser = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+        let dbUser = db.prepare('SELECT * FROM users WHERE lower(email) = ?').get(email);
+
+        // Bootstrap OWNER account from env if it does not exist yet.
+        if (!dbUser && isConfiguredOwner) {
+          const id = uuidv4();
+          db.prepare(
+            `INSERT INTO users (id, email, name, avatar_url, role, reports_to, is_active)
+             VALUES (?, ?, ?, ?, 'OWNER', NULL, 1)`
+          ).run(id, email, name, avatarUrl || null);
+          dbUser = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+        }
 
         if (!dbUser) {
           throw new Error('User not registered. Contact your administrator.');
         }
+
+        // Keep configured OWNER account privileged and active.
+        if (isConfiguredOwner && (dbUser.role !== 'OWNER' || !dbUser.is_active)) {
+          db.prepare(
+            `UPDATE users
+             SET role = 'OWNER', is_active = 1, reports_to = NULL, updated_at = datetime('now')
+             WHERE id = ?`
+          ).run(dbUser.id);
+          dbUser = db.prepare('SELECT * FROM users WHERE id = ?').get(dbUser.id);
+        }
+
         if (!dbUser.is_active) {
           throw new Error('Account is deactivated. Contact your administrator.');
         }
@@ -1205,6 +1238,10 @@ const resolvers = {
       requireAuth(user);
       const { leadId, title, description, startTime, endTime, attendees = [], addMeetLink = false } = input;
 
+      if (new Date(startTime) >= new Date(endTime)) {
+        throw new Error('End time must be after start time.');
+      }
+
       let googleEvent = null;
       try {
         googleEvent = await calendarService.createCalendarEvent(user.id, {
@@ -1276,6 +1313,44 @@ const resolvers = {
         'UPDATE users SET google_access_token = NULL, google_refresh_token = NULL, google_token_expiry = NULL WHERE id = ?'
       ).run(user.id);
       return true;
+    },
+
+    syncCalendarEvents: async (_, __, { user }) => {
+      requireAuth(user);
+      return calendarService.syncEventsFromGoogle(user.id);
+    },
+
+    updateCalendarEvent: async (_, { eventId, input }, { user }) => {
+      requireAuth(user);
+      const event = db.prepare('SELECT * FROM calendar_events WHERE id = ? AND user_id = ?').get(eventId, user.id);
+      if (!event) throw new Error('Event not found');
+
+      const effectiveStart = input.startTime || event.start_time;
+      const effectiveEnd = input.endTime || event.end_time;
+      if (new Date(effectiveStart) >= new Date(effectiveEnd)) {
+        throw new Error('End time must be after start time.');
+      }
+
+      if (event.google_event_id) {
+        await calendarService.updateCalendarEvent(user.id, event.google_event_id, input);
+      }
+
+      const { title, description, startTime, endTime, attendees } = input;
+      const updates = [];
+      const params = [];
+      if (title !== undefined) { updates.push('title = ?'); params.push(title); }
+      if (description !== undefined) { updates.push('description = ?'); params.push(description); }
+      if (startTime !== undefined) { updates.push('start_time = ?'); params.push(startTime); }
+      if (endTime !== undefined) { updates.push('end_time = ?'); params.push(endTime); }
+      if (attendees !== undefined) { updates.push('attendees = ?'); params.push(JSON.stringify(attendees)); }
+      if (updates.length) {
+        updates.push("updated_at = datetime('now')");
+        params.push(eventId);
+        db.prepare(`UPDATE calendar_events SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+      }
+
+      const row = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(eventId);
+      return { ...toCamel(row), attendees: row.attendees ? JSON.parse(row.attendees) : [] };
     },
 
     uploadFile: (_, { input }, { user }) => {

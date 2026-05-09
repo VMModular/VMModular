@@ -20,6 +20,9 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL
 async function startServer() {
   const app = express();
 
+  // ── Trust proxy (running behind nginx/Caddy) ──
+  app.set('trust proxy', 1);
+
   // ── Security Headers ──
   app.use(helmet({
     contentSecurityPolicy: IS_PROD ? undefined : false,
@@ -65,6 +68,14 @@ async function startServer() {
     } catch (err) {
       res.status(503).json({ status: 'error', db: 'disconnected', timestamp: new Date().toISOString() });
     }
+  });
+
+  // ── Google OAuth config for frontend ──
+  app.get('/auth/google/client-id', (_, res) => {
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      return res.status(500).json({ error: 'GOOGLE_CLIENT_ID is not configured' });
+    }
+    return res.json({ clientId: process.env.GOOGLE_CLIENT_ID });
   });
 
   // ── Google Calendar OAuth callback ──

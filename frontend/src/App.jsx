@@ -24,7 +24,7 @@ export default function App() {
       <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route index element={<Navigate to="/dashboard" />} />
         <Route path="dashboard" element={
-          <PrivateRoute roles={['OWNER', 'SENIOR_MANAGER']}>
+          <PrivateRoute roles={['OWNER', 'SENIOR_MANAGER', 'PRE_SALES_MANAGER']}>
             <DashboardPage />
           </PrivateRoute>
         } />

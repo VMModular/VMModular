@@ -8,7 +8,9 @@ const typeDefs = gql`
   enum UserRole {
     OWNER
     SENIOR_MANAGER
+    PRE_SALES_MANAGER
     SALES_EXECUTIVE
+    PRE_SALES_EXECUTIVE
   }
 
   enum LeadStatus {
@@ -301,6 +303,16 @@ const typeDefs = gql`
     url: String!
   }
 
+  type FreeBusySlot {
+    start: String!
+    end: String!
+  }
+
+  type SyncResult {
+    total: Int!
+    synced: Int!
+  }
+
   type LeadsConnection {
     leads: [Lead!]!
     totalCount: Int!
@@ -472,6 +484,7 @@ const typeDefs = gql`
     calendarAuthUrl: CalendarAuthUrl!
     calendarEvents(limit: Int): [CalendarEvent!]!
     isCalendarConnected: Boolean!
+    freeBusy(timeMin: String!, timeMax: String!): [FreeBusySlot!]!
   }
 
   # ── Mutations ──
@@ -512,7 +525,9 @@ const typeDefs = gql`
 
     # Calendar & Meet
     createCalendarEvent(input: CreateCalendarEventInput!): CalendarEvent!
+    updateCalendarEvent(eventId: ID!, input: UpdateCalendarEventInput!): CalendarEvent!
     deleteCalendarEvent(eventId: ID!): Boolean!
+    syncCalendarEvents: SyncResult!
     disconnectCalendar: Boolean!
   }
 
@@ -524,6 +539,15 @@ const typeDefs = gql`
     endTime: String!
     attendees: [String!]
     addMeetLink: Boolean
+  }
+
+  input UpdateCalendarEventInput {
+    title: String
+    description: String
+    startTime: String
+    endTime: String
+    attendees: [String!]
+    timeZone: String
   }
 `;
 

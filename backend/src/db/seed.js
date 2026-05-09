@@ -27,6 +27,20 @@ function seed() {
       insertUser.run(se3Id, 'se3@moducraft.com', 'Rahul Sharma Jr', 'SALES_EXECUTIVE', sm2Id);
       insertUser.run(se4Id, 'se4@moducraft.com', 'Bons Verma', 'SALES_EXECUTIVE', sm2Id);
 
+      // Optional OWNER bootstrap account from env
+      const ownerEmail = (process.env.OWNER_EMAIL || '').trim().toLowerCase();
+      if (ownerEmail) {
+        db.prepare(
+          `INSERT INTO users (id, email, name, role, reports_to, is_active)
+           VALUES (?, ?, ?, 'OWNER', NULL, 1)
+           ON CONFLICT(email) DO UPDATE SET
+             role = 'OWNER',
+             reports_to = NULL,
+             is_active = 1,
+             updated_at = datetime('now')`
+        ).run('00000000-0000-4000-a000-000000000099', ownerEmail, 'Configured Owner');
+      }
+
       console.log('  Users seeded');
 
       const salesExecs = [se1Id, se2Id, se3Id, se4Id];

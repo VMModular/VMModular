@@ -18,6 +18,9 @@ jobs:
           DOMAIN_NAME: ${{ secrets.DOMAIN || secrets.HOST }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           ENABLE_DEV_LOGIN: ${{ secrets.ENABLE_DEV_LOGIN || 'false' }}
+          OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           BASIC_AUTH_USER: ${{ secrets.BASIC_AUTH_USER }}
           BASIC_AUTH_PASS: ${{ secrets.BASIC_AUTH_PASS }}
         with:
@@ -25,7 +28,7 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           port: 22
-          envs: DOMAIN_NAME,JWT_SECRET,ENABLE_DEV_LOGIN,BASIC_AUTH_USER,BASIC_AUTH_PASS
+          envs: DOMAIN_NAME,JWT_SECRET,ENABLE_DEV_LOGIN,OWNER_EMAIL,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,BASIC_AUTH_USER,BASIC_AUTH_PASS
           script: |
             # Navigate to application directory
             mkdir -p ~/vm-crm
@@ -48,6 +51,10 @@ jobs:
             NODE_ENV=production
             ENABLE_DEV_LOGIN=$ENABLE_DEV_LOGIN
             JWT_SECRET=$JWT_SECRET
+            OWNER_EMAIL=$OWNER_EMAIL
+            GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+            GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
+            GOOGLE_REDIRECT_URI=$PROTOCOL://$DOMAIN_NAME/auth/google/callback
             DATABASE_URL=file:./data/vmcrm.db
             FRONTEND_URL=$PROTOCOL://$DOMAIN_NAME
             ALLOWED_ORIGINS=$PROTOCOL://$DOMAIN_NAME,http://localhost

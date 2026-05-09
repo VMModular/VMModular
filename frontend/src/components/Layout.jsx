@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: DashboardIcon, roles: ['OWNER', 'SENIOR_MANAGER'] },
+  { to: '/dashboard', label: 'Dashboard', icon: DashboardIcon, roles: ['OWNER', 'SENIOR_MANAGER', 'PRE_SALES_MANAGER'] },
   { to: '/leads', label: 'Leads', icon: LeadsIcon },
   { to: '/calendar', label: 'Calendar', icon: CalendarIcon },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, roles: ['OWNER'] },

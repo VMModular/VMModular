@@ -193,9 +193,43 @@ const migrations = [
   );`,
   `CREATE INDEX IF NOT EXISTS idx_calendar_events_user ON calendar_events(user_id);`,
   `CREATE INDEX IF NOT EXISTS idx_calendar_events_lead ON calendar_events(lead_id);`,
+  `ALTER TABLE calendar_events ADD COLUMN updated_at TEXT DEFAULT (datetime('now'));`,
 
   // ── Backfill: copy old name → first_name for existing rows ──
   `UPDATE leads SET first_name = name WHERE first_name IS NULL OR first_name = '';`,
+
+  // ── v3: widen users.role CHECK to include PRE_SALES roles ──
+  (db) => {
+    const schema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get();
+    if (!schema || schema.sql.includes('PRE_SALES_MANAGER')) {
+      console.log('  SKIP (already exists): Add PRE_SALES roles to users table...');
+      return;
+    }
+    console.log('  OK: Add PRE_SALES roles to users table...');
+    db.exec(`
+      CREATE TABLE users_v2 (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        avatar_url TEXT,
+        role TEXT NOT NULL DEFAULT 'SALES_EXECUTIVE'
+          CHECK (role IN ('OWNER', 'SENIOR_MANAGER', 'PRE_SALES_MANAGER', 'SALES_EXECUTIVE', 'PRE_SALES_EXECUTIVE')),
+        reports_to TEXT REFERENCES users_v2(id) ON DELETE SET NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        leads_column_preferences TEXT,
+        google_access_token TEXT,
+        google_refresh_token TEXT,
+        google_token_expiry TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      INSERT INTO users_v2 SELECT * FROM users;
+      DROP TABLE users;
+      ALTER TABLE users_v2 RENAME TO users;
+      CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+      CREATE INDEX IF NOT EXISTS idx_users_reports_to ON users(reports_to);
+    `);
+  },
 ];
 
 function migrate() {
@@ -203,7 +237,12 @@ function migrate() {
     console.log('Running migrations...');
 
     const transaction = db.transaction(() => {
-      for (const sql of migrations) {
+      for (const migration of migrations) {
+        if (typeof migration === 'function') {
+          migration(db);
+          continue;
+        }
+        const sql = migration;
         try {
           db.exec(sql);
           console.log('  OK:', sql.substring(0, 60) + '...');

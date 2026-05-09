@@ -10,6 +10,15 @@ export const DEV_LOGIN = gql`
   }
 `;
 
+export const GOOGLE_LOGIN = gql`
+  mutation GoogleLogin($idToken: String!) {
+    googleLogin(idToken: $idToken) {
+      token
+      user { id email name role avatarUrl }
+    }
+  }
+`;
+
 export const GET_ME = gql`
   query Me {
     me { id email name role avatarUrl leadsColumnPreferences }
@@ -248,6 +257,18 @@ export const DELETE_CALENDAR_EVENT = gql`
 export const DISCONNECT_CALENDAR = gql`
   mutation DisconnectCalendar {
     disconnectCalendar
+  }
+`;
+
+export const SYNC_CALENDAR_EVENTS = gql`
+  mutation SyncCalendarEvents {
+    syncCalendarEvents { total synced }
+  }
+`;
+
+export const GET_FREE_BUSY = gql`
+  query FreeBusy($timeMin: String!, $timeMax: String!) {
+    freeBusy(timeMin: $timeMin, timeMax: $timeMax) { start end }
   }
 `;
 
