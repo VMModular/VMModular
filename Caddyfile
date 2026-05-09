@@ -1,15 +1,4 @@
 {$DOMAIN} {
-    # Basic Authentication (Excluding API paths and OPTIONS requests)
-    @need_auth {
-        not method OPTIONS
-        not path /graphql*
-        not path /auth*
-        not path /health*
-    }
-    basic_auth @need_auth {
-        {$BASIC_AUTH_USER} {$BASIC_AUTH_PASS}
-    }
-
     # Reverse proxy to the frontend container
     reverse_proxy vmcrm-frontend:80
 

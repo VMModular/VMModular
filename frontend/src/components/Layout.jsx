@@ -32,8 +32,8 @@ export default function Layout() {
               <span className="text-white font-bold text-lg">M</span>
             </div>
             <div>
-              <h1 className="font-semibold text-gray-900 text-sm">ModuCraft</h1>
-              <p className="text-xs text-gray-500">Furniture CRM</p>
+              <h1 className="font-semibold text-gray-900 text-sm">VM Modular CRM</h1>
+              <p className="text-xs text-gray-500">Sales CRM</p>
             </div>
           </div>
         </div>

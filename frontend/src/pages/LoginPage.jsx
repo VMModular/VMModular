@@ -115,8 +115,8 @@ export default function LoginPage() {
           <div className="w-20 h-20 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-8">
             <span className="text-white font-bold text-4xl">M</span>
           </div>
-          <h2 className="text-4xl font-bold text-white mb-4">ModuCraft</h2>
-          <p className="text-xl text-primary-200 mb-2">Furniture CRM</p>
+          <h2 className="text-4xl font-bold text-white mb-4">VM Modular CRM</h2>
+          <p className="text-xl text-primary-200 mb-2">Sales CRM</p>
           <p className="text-primary-300 max-w-md mt-4">
             Manage your sales pipeline, track leads, and grow your modular furniture business — all in one place.
           </p>
@@ -135,8 +135,8 @@ export default function LoginPage() {
               <span className="text-white font-bold text-2xl">M</span>
             </div>
             <div>
-              <h1 className="font-bold text-gray-900 text-xl">ModuCraft</h1>
-              <p className="text-sm text-gray-500">Furniture CRM</p>
+              <h1 className="font-bold text-gray-900 text-xl">VM Modular CRM</h1>
+              <p className="text-sm text-gray-500">Sales CRM</p>
             </div>
           </div>
 

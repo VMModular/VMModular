@@ -21,14 +21,13 @@ jobs:
           OWNER_EMAIL: ${{ secrets.OWNER_EMAIL }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          BASIC_AUTH_USER: ${{ secrets.BASIC_AUTH_USER }}
-          BASIC_AUTH_PASS: ${{ secrets.BASIC_AUTH_PASS }}
+
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           port: 22
-          envs: DOMAIN_NAME,JWT_SECRET,ENABLE_DEV_LOGIN,OWNER_EMAIL,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,BASIC_AUTH_USER,BASIC_AUTH_PASS
+          envs: DOMAIN_NAME,JWT_SECRET,ENABLE_DEV_LOGIN,OWNER_EMAIL,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET
           script: |
             # Navigate to application directory
             mkdir -p ~/vm-crm
@@ -63,8 +62,7 @@ jobs:
             # Create Caddy env file safely using printf
             # We must double the $ signs ($$) because Docker Compose tries to expand them
             printf "DOMAIN=%s\n" "$DOMAIN_NAME" > .env.caddy
-            printf "BASIC_AUTH_USER=%s\n" "$BASIC_AUTH_USER" >> .env.caddy
-            printf "BASIC_AUTH_PASS=%s\n" "$BASIC_AUTH_PASS" | sed 's/\$/$$/g' >> .env.caddy
+
 
             # Ensure scripts are executable
             chmod +x setup.sh startup.sh
