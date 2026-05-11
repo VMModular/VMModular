@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
+import { useAuth } from '../context/AuthContext';
 import {
   GET_ALERT_SETTINGS, UPDATE_ALERT_SETTINGS,
   GET_QUALIFICATION_CRITERIA, SAVE_QUALIFICATION_CRITERIA,
@@ -10,6 +11,7 @@ import {
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState('criteria');
 
   return (
@@ -30,6 +32,7 @@ export default function SettingsPage() {
           { id: 'criteria', label: 'MQL/SQL Criteria' },
           { id: 'alerts', label: 'Alert Configuration' },
           { id: 'integrations', label: 'Integrations' },
+          { id: 'data', label: 'Data Management' },
         ].map((tab) => (
           <button key={tab.id} onClick={() => setActiveSection(tab.id)}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeSection === tab.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500'}`}>
@@ -41,6 +44,7 @@ export default function SettingsPage() {
       {activeSection === 'criteria' && <CriteriaSettings />}
       {activeSection === 'alerts' && <AlertSettings />}
       {activeSection === 'integrations' && <IntegrationSettings />}
+      {activeSection === 'data' && <DataManagement user={user} />}
     </div>
   );
 }
@@ -389,6 +393,207 @@ function IntegrationSettings() {
           </div>
           <span className="ml-auto text-xs text-gray-400 font-medium bg-gray-100 px-3 py-1 rounded-full">Coming Soon</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Data Management ──
+function DownloadIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+    </svg>
+  );
+}
+
+function DataManagement({ user }) {
+  const { enqueueSnackbar } = useSnackbar();
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [backingUp, setBackingUp] = useState(false);
+  const [exporting, setExporting] = useState(null); // 'csv' | 'xlsx' | null
+  const fileInputRef = useRef(null);
+
+  const isOwner = user?.role === 'OWNER';
+
+  const handleDownload = async (url, defaultFilename, loadingSetter) => {
+    if (loadingSetter) loadingSetter(true);
+    try {
+      const token = localStorage.getItem('vmcrm_token');
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Download failed');
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get('Content-Disposition') || '';
+      const match = cd.match(/filename="?([^";\n]+)"?/);
+      const filename = match ? match[1] : defaultFilename;
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      enqueueSnackbar(err.message, { variant: 'error' });
+    } finally {
+      if (loadingSetter) loadingSetter(false);
+    }
+  };
+
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const token = localStorage.getItem('vmcrm_token');
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/leads/import', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Import failed');
+      setImportResult(data);
+      if (data.imported > 0) {
+        enqueueSnackbar(
+          `${data.imported} lead${data.imported !== 1 ? 's' : ''} imported${data.skipped > 0 ? `, ${data.skipped} skipped` : ''}`,
+          { variant: data.skipped > 0 ? 'warning' : 'success' }
+        );
+      } else {
+        enqueueSnackbar('No leads were imported', { variant: 'warning' });
+      }
+    } catch (err) {
+      enqueueSnackbar(err.message, { variant: 'error' });
+    } finally {
+      setImporting(false);
+      e.target.value = '';
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900">Data Management</h2>
+        <p className="text-sm text-gray-500 mt-1">Backup, export, and import lead data.</p>
+      </div>
+
+      {/* Full Backup — Owner only */}
+      {isOwner && (
+        <div className="card">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">Full Database Backup</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Download a complete JSON backup of all leads, contacts, activities, and quotations.
+                Store it securely as an archive.
+              </p>
+            </div>
+            <button
+              onClick={() => handleDownload('/api/leads/backup', 'vmcrm-backup.json', setBackingUp)}
+              disabled={backingUp}
+              className="shrink-0 btn-secondary flex items-center gap-2"
+            >
+              <DownloadIcon />
+              {backingUp ? 'Preparing…' : 'Download Backup'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Export Leads */}
+      <div className="card">
+        <h3 className="text-base font-semibold text-gray-900 mb-1">Export Leads</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Export all leads to a spreadsheet. Includes all fields and assigned-to information.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => handleDownload('/api/leads/export?format=xlsx', 'leads-export.xlsx', (v) => setExporting(v ? 'xlsx' : null))}
+            disabled={exporting === 'xlsx'}
+            className="btn-primary flex items-center gap-2"
+          >
+            <DownloadIcon />
+            {exporting === 'xlsx' ? 'Exporting…' : 'Export as Excel (.xlsx)'}
+          </button>
+          <button
+            onClick={() => handleDownload('/api/leads/export?format=csv', 'leads-export.csv', (v) => setExporting(v ? 'csv' : null))}
+            disabled={exporting === 'csv'}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <DownloadIcon />
+            {exporting === 'csv' ? 'Exporting…' : 'Export as CSV'}
+          </button>
+        </div>
+      </div>
+
+      {/* Import Leads */}
+      <div className="card">
+        <h3 className="text-base font-semibold text-gray-900 mb-1">Import Leads</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Bulk-create leads from a CSV or Excel file.{' '}
+          <button
+            onClick={() => handleDownload('/api/leads/import-template', 'leads-import-template.xlsx', null)}
+            className="text-primary-600 hover:underline font-medium"
+          >
+            Download import template
+          </button>{' '}
+          to get started.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx"
+            onChange={handleImport}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            className="btn-primary flex items-center gap-2"
+          >
+            <UploadIcon />
+            {importing ? 'Importing…' : 'Choose File & Import'}
+          </button>
+          <p className="text-xs text-gray-400">Accepted: .csv, .xlsx · Max 5 MB · Max 1 000 rows</p>
+        </div>
+
+        {importResult && (
+          <div className={`mt-5 p-4 rounded-lg border ${importResult.skipped > 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'}`}>
+            <p className="text-sm font-semibold text-gray-900 mb-2">
+              Import complete — {importResult.imported} lead{importResult.imported !== 1 ? 's' : ''} added
+              {importResult.skipped > 0 && (
+                <span className="text-yellow-700 ml-2">· {importResult.skipped} row{importResult.skipped !== 1 ? 's' : ''} skipped</span>
+              )}
+            </p>
+            {importResult.errors?.length > 0 && (
+              <ul className="text-xs text-red-600 space-y-0.5 max-h-40 overflow-y-auto">
+                {importResult.errors.map((e, i) => (
+                  <li key={i} className="flex gap-1.5">
+                    <span>•</span><span>{e}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

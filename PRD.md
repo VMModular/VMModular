@@ -1,7 +1,7 @@
 # ModuCraft Furniture CRM — Product Requirements Document
 
-**Version:** 2.6  
-**Date:** April 9, 2026  
+**Version:** 2.7  
+**Date:** May 11, 2026  
 **Product Name:** VM CRM (ModuCraft Furniture CRM)  
 **Platform:** Web Application  
 
@@ -58,6 +58,9 @@ Owner / CEO
 | MQL/SQL criteria config | ✅ | ❌ | ❌ |
 | Alert rules configuration | ✅ | ❌ | ❌ |
 | Assign/reassign leads | ✅ | ✅ (within team) | ❌ |
+| Full database backup | ✅ | ❌ | ❌ |
+| Export leads (CSV/Excel) | ✅ | ✅ | ❌ |
+| Bulk import leads | ✅ | ✅ | ❌ |
 
 ---
 
@@ -421,6 +424,52 @@ Alerts are categorized by severity level and sorted critical-first.
 - If linked to a lead, a MEETING activity is logged on that lead's timeline
 - Deleting an event removes it from both the CRM and Google Calendar
 
+### 5.11 Admin: Data Management
+
+**Accessible to:** Owner (full access) · Senior Sales Manager (export & import only)
+
+Available under **Settings → Data Management** tab.
+
+#### Full Database Backup *(Owner only)*
+
+- A **Download Backup** button generates and downloads a timestamped `.json` file containing every record across:
+  - All leads (all fields)
+  - All lead contacts (secondary and tertiary contacts)
+  - All activities (notes, calls, meetings, tasks, status changes, file uploads, quotations)
+  - All quotations
+- File is named `vmcrm-backup-YYYY-MM-DD.json`
+- Metadata block at the top of the file includes `exportedAt`, `exportedBy` (email), schema `version`, and row counts
+- Intended for periodic manual archiving; recommended before major data operations
+- Backend rate-limited to prevent abuse
+
+#### Export Leads
+
+- **Export as Excel (.xlsx)** — downloads a multi-column spreadsheet with all lead fields including *Assigned To* name
+- **Export as CSV** — same data as Excel, UTF-8 BOM-prefixed for correct Excel encoding
+- File named `leads-export-YYYY-MM-DD.xlsx / .csv`
+- Exported columns: ID, First Name, Middle Name, Last Name, Designation, Company, Email, Phone, Status, Priority, Source, Campaign Name, Campaign Active, Assigned To, Budget, Location, Delivery Days, Property In Possession, Expected Handover Month, Expected Handover Year, Current Living Area, Current Living City, Current Living Country, Notes, Created At
+- Boolean fields (Campaign Active, Property In Possession) exported as human-readable *Yes* / *No*
+
+#### Import Leads
+
+- **Download import template** — link downloads a pre-formatted `.xlsx` template with:
+  - Sheet 1 (*Leads Import Template*): Column headers + one sample row
+  - Sheet 2 (*Field Notes*): Allowed values and format rules for each column
+- **Choose File & Import** — opens a native file picker accepting `.csv` or `.xlsx` files
+  - File size limit: **5 MB**
+  - Row limit: **1 000 rows** per import
+  - Required field: **First Name** (rows missing it are skipped with an error message)
+  - Optional fields default: Status → NEW, Priority → P3; invalid enum values are silently defaulted
+  - Boolean fields (Campaign Active, Property In Possession): accept `Yes/No`, `true/false`, `1/0`
+  - Each imported lead is assigned to and created by the importing user
+  - Import runs inside a single DB transaction; individual row failures do not abort the rest
+- **Import result panel** (shown after each import):
+  - Count of successfully imported leads
+  - Count of skipped rows (with reason per row, e.g., "Missing First Name")
+  - Colour-coded: green for clean import, yellow if any rows were skipped
+
+---
+
 ### 5.10 Admin: Integrations Settings
 
 **Accessible to:** Owner only (under Settings → Integrations tab)
@@ -519,6 +568,8 @@ Alerts appear on the Management Dashboard Alerts tab (sorted by severity, critic
 | Frontend | React 18, Tailwind CSS, React Router, Apollo Client |
 | Backend | Node.js, Express.js, Apollo Server (GraphQL) |
 | Database | SQLite (via better-sqlite3) |
+| File Processing | SheetJS (xlsx) — Excel & CSV generation/parsing |
+| File Upload | multer (memory storage, 5 MB limit) |
 | Auth | Google OAuth 2.0, JWT |
 | Charts | Recharts |
 | Drag & Drop | @dnd-kit/core |
@@ -564,12 +615,24 @@ Alerts appear on the Management Dashboard Alerts tab (sorted by severity, critic
 - Automated lead scoring
 - Custom reports builder
 - Mobile native app (React Native)
-- Bulk import/export (CSV)
 - Webhooks for external integrations
 
 ---
 
 ## 14. Changelog
+
+### V2.7 (May 11, 2026)
+
+| Area | Change |
+|------|--------|
+| Data Management — Backup | New **Full Database Backup** feature (Owner only): downloads a timestamped `.json` file containing all leads, contacts, activities, and quotations via `GET /api/leads/backup` |
+| Data Management — Export | New **Export Leads** feature (Owner + Senior Manager): exports all leads to `.xlsx` or `.csv` via `GET /api/leads/export?format=xlsx\|csv` |
+| Data Management — Import | New **Bulk Import Leads** feature (Owner + Senior Manager): upload `.csv` or `.xlsx` file to bulk-create up to 1 000 leads at a time via `POST /api/leads/import`; includes row-level validation, error reporting, and transactional insert |
+| Data Management — Template | New **Import Template** download (Owner + Senior Manager): pre-formatted `.xlsx` file with headers, sample row, and a Field Notes sheet explaining allowed values |
+| Settings UI | Added **Data Management** tab to the Settings page with Backup, Export, and Import cards |
+| Permissions | Updated permission matrix: Backup = Owner only; Export & Import = Owner + Senior Manager |
+| Tech Stack | Added `xlsx` (SheetJS) and `multer` dependencies to the backend |
+| Proxy | Vite dev proxy and Nginx production config extended with `/api` → backend routing |
 
 ### V2.6 (April 9, 2026)
 
