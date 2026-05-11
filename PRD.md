@@ -1,6 +1,6 @@
 # ModuCraft Furniture CRM — Product Requirements Document
 
-**Version:** 2.7  
+**Version:** 2.8  
 **Date:** May 11, 2026  
 **Product Name:** VM CRM (ModuCraft Furniture CRM)  
 **Platform:** Web Application  
@@ -70,6 +70,8 @@ Owner / CEO
 - **Flow:** User clicks "Login with Google" → Google consent screen → redirect back with token → backend validates and maps email to user record
 - **Authorization:** Email-based; only pre-registered emails (added via Org Structure admin screen) can log in
 - **Session:** JWT tokens with refresh mechanism
+- **Owner bootstrap:** The `OWNER_EMAIL` environment variable designates the primary owner account. On first login the account is auto-created; on every subsequent Google login the user's **display name and avatar are automatically synced from their Google profile**.
+- **`OWNER_NAME` env var:** An optional `OWNER_NAME` value in `.env` sets the owner's display name at seed/bootstrap time. This is overridden by the real Google profile name on first login.
 
 ---
 
@@ -620,6 +622,15 @@ Alerts appear on the Management Dashboard Alerts tab (sorted by severity, critic
 ---
 
 ## 14. Changelog
+
+### V2.8 (May 11, 2026)
+
+| Area | Change |
+|------|--------|
+| Auth — Name Sync | Google OAuth login now **always updates the user's display name and avatar** from their Google profile on every sign-in, so the name shown in the sidebar always matches the Google account |
+| Auth — `OWNER_NAME` | Added `OWNER_NAME` environment variable: sets the owner's display name at seed/bootstrap time; overridden by the real Google profile name on first login |
+| Auth — Bootstrap | Owner bootstrap (`googleLogin` resolver) now upserts `name` in addition to `avatar_url` on every login |
+| Seed | `seed.js` respects `OWNER_NAME` env var with email-local-part derivation as fallback; `ON CONFLICT` upsert now also updates `name` |
 
 ### V2.7 (May 11, 2026)
 

@@ -30,15 +30,26 @@ function seed() {
       // Optional OWNER bootstrap account from env
       const ownerEmail = (process.env.OWNER_EMAIL || '').trim().toLowerCase();
       if (ownerEmail) {
+        // Prefer explicit OWNER_NAME; fall back to deriving from email local part
+        let ownerName = (process.env.OWNER_NAME || '').trim();
+        if (!ownerName) {
+          const localPart = ownerEmail.split('@')[0];
+          ownerName = localPart
+            .replace(/[._\-]+/g, ' ')
+            .split(' ')
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ');
+        }
         db.prepare(
           `INSERT INTO users (id, email, name, role, reports_to, is_active)
            VALUES (?, ?, ?, 'OWNER', NULL, 1)
            ON CONFLICT(email) DO UPDATE SET
              role = 'OWNER',
+             name = excluded.name,
              reports_to = NULL,
              is_active = 1,
              updated_at = datetime('now')`
-        ).run('00000000-0000-4000-a000-000000000099', ownerEmail, 'Configured Owner');
+        ).run('00000000-0000-4000-a000-000000000099', ownerEmail, ownerName);
       }
 
       console.log('  Users seeded');

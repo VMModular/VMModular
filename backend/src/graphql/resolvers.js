@@ -905,8 +905,12 @@ const resolvers = {
         }
 
         if (avatarUrl) {
-          db.prepare("UPDATE users SET avatar_url = ?, updated_at = datetime('now') WHERE id = ?").run(avatarUrl, dbUser.id);
+          db.prepare("UPDATE users SET avatar_url = ?, name = ?, updated_at = datetime('now') WHERE id = ?").run(avatarUrl, name, dbUser.id);
           dbUser.avatar_url = avatarUrl;
+          dbUser.name = name;
+        } else {
+          db.prepare("UPDATE users SET name = ?, updated_at = datetime('now') WHERE id = ?").run(name, dbUser.id);
+          dbUser.name = name;
         }
 
         const token = generateToken(dbUser);
